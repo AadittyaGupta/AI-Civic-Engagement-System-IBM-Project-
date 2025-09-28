@@ -25,7 +25,7 @@ GOOGLE_API_KEY = st.secrets.get("GOOGLE_API_KEY")
 if GOOGLE_API_KEY and GOOGLE_API_KEY != "ApiKey":
     try:
         genai.configure(api_key=GOOGLE_API_KEY)
-        llm = genai.GenerativeModel('gemini-1.5-flash')
+        llm = genai.GenerativeModel('gemini-pro')
     except Exception as e:
         st.error(f"Error configuring the AI model: {e}")
         st.stop()
