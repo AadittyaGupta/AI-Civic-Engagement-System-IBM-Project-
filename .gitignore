@@ -1,0 +1,16 @@
+# Ignore virtual environment folders
+bin/
+lib/
+include/
+etc/
+share/
+pyvenv.cfg
+
+# Ignore system files
+__pycache__/
+*.pyc
+.DS_Store
+
+# Ignore IDE files
+.vscode/
+.idea/
