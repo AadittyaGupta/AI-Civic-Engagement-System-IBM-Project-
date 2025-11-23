@@ -1,8 +1,11 @@
+
 import streamlit as st
 import json
 import google.generativeai as genai
 from deep_translator import GoogleTranslator
 import random
+from doc_analyzer import run_document_analyzer_tab
+
 
 # Tips
 energy_tips = [
@@ -13,25 +16,48 @@ energy_tips = [
     "Turn off fans and lights when leaving the room."
 ]
 
+# --- LLM Configuration and call_llm Function (Moved to Top for Import Safety) ---
 
+# Set Streamlit page configuration before any output or errors
 st.set_page_config(
-    page_title="AI Civic Engagement Agent",
+    page_title="GovGuide",
     page_icon="🇮🇳",
     layout="wide"
 )
 
-GOOGLE_API_KEY = st.secrets.get("GOOGLE_API_KEY") 
+GOOGLE_API_KEY = st.secrets.get("GOOGLE_API_KEY")  # Replace with your actual key
 
+llm = None
 if GOOGLE_API_KEY and GOOGLE_API_KEY != "ApiKey":
     try:
         genai.configure(api_key=GOOGLE_API_KEY)
-        llm = genai.GenerativeModel('gemini-pro')
+        # Initializing LLM globally
+        llm = genai.GenerativeModel('gemini-2.5-flash')
     except Exception as e:
         st.error(f"Error configuring the AI model: {e}")
-        st.stop()
+        # LLM will remain None, handled by call_llm and run_agentic_loop
 else:
-    st.error("🚨 Google API Key not found! Please paste your key into the `app.py` file on line 20.")
-    st.stop()
+    st.error("🚨 Google API Key not found! Please paste your key into the `app.py` file.")
+
+
+def call_llm(prompt: str) -> str:
+    """
+    A unified function for doc_analyzer.py to call the LLM.
+    Handles the actual API call.
+    """
+    # Use llm instance initialized above
+    if llm is None:
+        # Fallback if LLM setup failed earlier
+        return '{"title": "API Error", "bullets": ["LLM API key not configured correctly."], "clauses": [], "actions": [], "department": "System"}'
+    try:
+        # Use a higher temperature for creative tasks like summarization
+        response = llm.generate_content(prompt, generation_config={"temperature": 0.2})
+        return response.text.strip()
+    except Exception:
+        # Avoid st.error here as this function is called during module import/setup
+        return ""
+
+# -------------------------------------------------------------------
 
 
 @st.cache_data
@@ -80,6 +106,10 @@ def run_agentic_loop(user_query, target_language='en'):
     This function manages the agent's "reason-act" cycle.
     It takes a user's query and guides the AI to a final answer.
     """
+    # CRITICAL FIX: Check for LLM availability here
+    if llm is None:
+        return "Sorry, the AI model is not connected. Please check your Google API Key configuration."
+        
     # Combine the master instructions with the user's specific query.
     prompt = f"{MASTER_PROMPT}\n\nUser Query: \"{user_query}\""
     
@@ -128,10 +158,10 @@ def run_agentic_loop(user_query, target_language='en'):
             direct_response = GoogleTranslator(source='auto', target=target_language).translate(direct_response)
         return direct_response
 
-st.title("AI Civic Engagement Agent")
+st.title("GovGuide")
 st.markdown("Your personal guide to discovering and understanding Indian Government Schemes.")
 
-tab1, tab2, tab3, tab4 = st.tabs(["Home", "Scheme Finder", "AI Agent Chat", "All Schemes"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["Home", "Scheme Finder", "AI Agent Chat", "All Schemes", "Document Analyzer"])
 
 with tab1:
     st.header("Why This Project Matters")
@@ -146,6 +176,7 @@ with tab1:
     st.markdown("""
     - **Personalized Scheme Finder:** Fill out a simple form with your details to get a curated list of schemes that match your specific profile.
     - **AI Assistant Chat:** Ask complex questions in plain English or Hindi and get clear, understandable answers from our intelligent agent.
+    - **Document Analyzer:** Upload any official notice (bill, letter, etc.) and receive an instant summary, key clauses, and clear action items.
     - **Step-by-step Guidance:** The agent provides simple instructions on eligibility criteria, required documents, and how to apply for each scheme.
     - **Auto-Updated Data:** An offline AI agent works to keep our scheme information current by sourcing data from official government portals.
     """)
@@ -287,3 +318,5 @@ with tab4:
                 st.link_button("Apply Here / Official Page ↗️", scheme.get('official_link', '#'))
             st.write("") 
 
+with tab5:
+    run_document_analyzer_tab()
